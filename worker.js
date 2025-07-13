@@ -1,5 +1,5 @@
 self.onmessage = (event) => {
-    const { delay, maxRequests, targetUrl } = event.data;
+    const { delay, maxRequests, targetUrl, apiKey } = event.data;
     let requestCount = 0;
     let successfulCount = 0;
     let failedCount = 0;
@@ -31,7 +31,9 @@ self.onmessage = (event) => {
         }
 
         requestCount++;
-        fetch(targetUrl, {
+        const url = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}&render_js=true`;
+
+        fetch(url, {
             method: 'GET',
             cache: 'no-store',
             mode: 'no-cors'
