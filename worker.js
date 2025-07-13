@@ -70,5 +70,6 @@ self.onmessage = (event) => {
         });
     }
 
+    // Use setInterval for high-frequency requests
     setInterval(sendRequest, delay);
 };
