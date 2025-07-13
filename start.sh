@@ -15,5 +15,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Starting attack on $1"
-./ddos-tool "$1"
+# Get target from workflow input
+TARGET="${1}"
+if [ -z "$TARGET" ]; then
+    echo "No target specified! Exiting."
+    exit 1
+fi
+
+echo "Starting attack on $TARGET"
+./ddos-tool "$TARGET"
