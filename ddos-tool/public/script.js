@@ -52,8 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
         successRate: document.getElementById('success-rate'),
         error503: document.getElementById('error-503'),
         rps: document.getElementById('rps'),
-        activeWorkers: document.getElementById('active-workers'),
-        lastRequest: document.getElementById('last-request'),
+        concurrency: document.getElementById('concurrency'),
+        status: document.getElementById('status'),
+        targetUrl: document.getElementById('target-url'),
         intensityUp: document.getElementById('intensity-up'),
         intensityDown: document.getElementById('intensity-down'),
         toggleAttack: document.getElementById('toggle-attack')
@@ -62,6 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Store historical data
     const rpsHistory = [];
     const maxDataPoints = 60;
+    
+    // Set target URL
+    elements.targetUrl.textContent = window.location.host;
     
     // Fetch stats every second
     setInterval(fetchStats, 1000);
@@ -75,14 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.requestsSent.textContent = data.requests_sent.toLocaleString();
             elements.error503.textContent = data.error_503.toLocaleString();
             elements.rps.textContent = data.rps.toFixed(1);
-            elements.activeWorkers.textContent = data.active_workers.toLocaleString();
+            elements.concurrency.textContent = data.active_workers.toLocaleString();
+            elements.status.textContent = data.is_attacking ? "ATTACKING" : "STOPPED";
+            elements.status.style.color = data.is_attacking ? "#ff2d55" : "#4cd964";
             
             const successRate = data.requests_sent > 0 ? 
                 (data.success_count / data.requests_sent * 100) : 0;
             elements.successRate.textContent = successRate.toFixed(1) + '%';
-            
-            const lastRequestMs = (Date.now() - (data.last_request / 1e6));
-            elements.lastRequest.textContent = (lastRequestMs / 1000).toFixed(1) + 's ago';
             
             // Update chart
             rpsHistory.push(data.rps);
@@ -91,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             chart.data.datasets[0].data = rpsHistory;
-            chart.data.labels = rpsHistory.map((_, i) => `${i}s`);
+            chart.data.labels = Array.from({length: rpsHistory.length}, (_, i) => `${i}s`);
             chart.update();
             
         } catch (error) {
@@ -100,19 +103,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Control buttons
-    elements.intensityUp.addEventListener('click', () => {
-        fetch('/control?action=intensity_up');
+    elements.intensityUp.addEventListener('click', async () => {
+        await fetch('/control?action=intensity_up');
+        fetchStats();
     });
     
-    elements.intensityDown.addEventListener('click', () => {
-        fetch('/control?action=intensity_down');
+    elements.intensityDown.addEventListener('click', async () => {
+        await fetch('/control?action=intensity_down');
+        fetchStats();
     });
     
-    let isAttacking = true;
-    elements.toggleAttack.addEventListener('click', () => {
-        isAttacking = !isAttacking;
-        elements.toggleAttack.textContent = isAttacking ? 'Stop Attack' : 'Start Attack';
-        fetch(`/control?action=${isAttacking ? 'start' : 'stop'}`);
+    elements.toggleAttack.addEventListener('click', async () => {
+        const action = elements.toggleAttack.textContent === "Start Attack" ? "start" : "stop";
+        await fetch(`/control?action=${action}`);
+        fetchStats();
+        
+        if (action === "start") {
+            elements.toggleAttack.textContent = "Stop Attack";
+        } else {
+            elements.toggleAttack.textContent = "Start Attack";
+        }
     });
     
     // Initial fetch
