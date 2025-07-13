@@ -180,7 +180,7 @@
 
             const delay = 1000 / rps;
             worker = new Worker('worker.js');
-            worker.postMessage({ delay, maxRequests: parseInt(maxRequestsInput.value, 10), targetUrl: targetUrlInput.value });
+            worker.postMessage({ delay, maxRequests: parseInt(maxRequestsInput.value, 10), targetUrl: targetUrlInput.value, apiKey: 'SKI50V1VXTECATB7VR23DYKQM4BNC81U3IMKB4Z15G6WIHT88SZGBYT37X8EX2UENVZXKXGGF3QWK13R' });
 
             worker.onmessage = (event) => {
                 const data = event.data;
