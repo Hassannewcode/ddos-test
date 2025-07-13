@@ -1,1 +1,54 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DDoS Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Server Overload Dashboard</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h2>Requests Sent</h2>
+                <div id="requests-sent" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <h2>Success Rate</h2>
+                <div id="success-rate" class="stat-value">0%</div>
+            </div>
+            <div class="stat-card">
+                <h2>503 Errors</h2>
+                <div id="error-503" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <h2>Requests/Sec</h2>
+                <div id="rps" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <h2>Active Workers</h2>
+                <div id="active-workers" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <h2>Last Request</h2>
+                <div id="last-request" class="stat-value">0s ago</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="rps-chart"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button id="intensity-up">Increase Intensity</button>
+            <button id="intensity-down">Decrease Intensity</button>
+            <button id="toggle-attack">Stop Attack</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
