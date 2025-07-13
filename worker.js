@@ -1,75 +1,37 @@
-self.onmessage = (event) => {
-    const { delay, maxRequests, targetUrl, apiKey } = event.data;
-    let requestCount = 0;
-    let successfulCount = 0;
-    let failedCount = 0;
-    let error429Count = 0;
-    let error503Count = 0;
-    const startTime = performance.now();
+// Not needed for core functionality, but included if you want to offload UI tasks
+// This would be used in public/script.js if you need heavy computation in the UI
 
-    function sendRequest() {
-        if (maxRequests > 0 && requestCount >= maxRequests) {
-            self.postMessage({
-                requestCount,
-                successfulCount,
-                failedCount,
-                error429Count,
-                error503Count
-            });
-            return;
-        }
+self.addEventListener('message', (e) => {
+  const { type, data } = e.data;
+  
+  if (type === 'process_stats') {
+    // Example processing that could be done in a worker
+    const processed = {
+      rps: data.rps,
+      smoothed: smoothData(data.history, 5),
+      prediction: predictNextValue(data.history)
+    };
+    
+    self.postMessage({
+      type: 'processed_stats',
+      data: processed
+    });
+  }
+});
 
-        if (!targetUrl) {
-            self.postMessage({
-                requestCount,
-                successfulCount,
-                failedCount,
-                error429Count,
-                error503Count
-            });
-            return;
-        }
+function smoothData(data, windowSize) {
+  if (data.length === 0) return [];
+  return data.map((_, i) => {
+    const start = Math.max(0, i - windowSize);
+    const end = i + 1;
+    const slice = data.slice(start, end);
+    return slice.reduce((a, b) => a + b, 0) / slice.length;
+  });
+}
 
-        requestCount++;
-        const url = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}&render_js=true`;
-
-        fetch(url, {
-            method: 'GET',
-            cache: 'no-store',
-            mode: 'no-cors'
-        })
-        .then(response => {
-            if (response.status === 429) {
-                error429Count++;
-                failedCount++;
-            } else if (response.status === 503) {
-                error503Count++;
-                failedCount++;
-            } else if (response.ok || response.status === 0) {
-                successfulCount++;
-            } else {
-                failedCount++;
-            }
-            self.postMessage({
-                requestCount,
-                successfulCount,
-                failedCount,
-                error429Count,
-                error503Count
-            });
-        })
-        .catch(error => {
-            failedCount++;
-            self.postMessage({
-                requestCount,
-                successfulCount,
-                failedCount,
-                error429Count,
-                error503Count
-            });
-        });
-    }
-
-    // Use setInterval for high-frequency requests
-    setInterval(sendRequest, delay);
-};
+function predictNextValue(data) {
+  if (data.length < 2) return 0;
+  const last = data[data.length - 1];
+  const secondLast = data[data.length - 2];
+  return last + (last - secondLast);
+}
