@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DDoS Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/public/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -29,12 +29,12 @@
                 <div id="rps" class="stat-value">0</div>
             </div>
             <div class="stat-card">
-                <h2>Active Workers</h2>
-                <div id="active-workers" class="stat-value">0</div>
+                <h2>Concurrency</h2>
+                <div id="concurrency" class="stat-value">0</div>
             </div>
             <div class="stat-card">
-                <h2>Last Request</h2>
-                <div id="last-request" class="stat-value">0s ago</div>
+                <h2>Status</h2>
+                <div id="status" class="stat-value">IDLE</div>
             </div>
         </div>
         
@@ -45,10 +45,14 @@
         <div class="controls">
             <button id="intensity-up">Increase Intensity</button>
             <button id="intensity-down">Decrease Intensity</button>
-            <button id="toggle-attack">Stop Attack</button>
+            <button id="toggle-attack">Start Attack</button>
+        </div>
+        
+        <div class="target-info">
+            <h3>Target: <span id="target-url">https://example.com</span></h3>
         </div>
     </div>
     
-    <script src="script.js"></script>
+    <script src="/public/script.js"></script>
 </body>
 </html>
