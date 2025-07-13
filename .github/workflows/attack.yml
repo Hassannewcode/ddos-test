@@ -1,0 +1,34 @@
+name: Server Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target URL'
+        required: true
+      duration:
+        description: 'Attack duration (minutes)'
+        default: '10'
+        required: true
+
+jobs:
+  attack:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Make script executable
+        run: chmod +x start.sh
+
+      - name: Run attack
+        run: ./start.sh "${{ github.event.inputs.target }}"
+        timeout-minutes: ${{ github.event.inputs.duration }}
